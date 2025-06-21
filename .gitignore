@@ -54,3 +54,12 @@ bin/
 ####################
 .env
 .env.*
+
+# JetBrains IDEs #
+##################
+.idea/
+# Coverage #
+##################
+coverage/
+
+cf

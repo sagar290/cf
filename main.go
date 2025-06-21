@@ -24,33 +24,52 @@ type DnsRecordsResponse struct {
 
 var apiToken string
 var newIP string
+var proxied bool
+var ttl int16 = 3600
 
 func main() {
 	rootCmd := &cobra.Command{Use: "cf"}
 
 	updateCmd := &cobra.Command{
-		Use:   "update dns [domain]",
-		Short: "Update A and www A record for a domain",
-		Args:  cobra.ExactArgs(1),
+		Use:   "update dns [domain] [fqdn]",
+		Short: "Update specific A record (like root or www) for a domain",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			domain := args[0]
+
+			resource := args[0]
+			domain := args[1]
+			fqdn := args[2]
+
+			if resource != "dns" {
+				return fmt.Errorf("Invalid resource type: %s. Only 'dns' is supported", resource)
+			}
+
+			if fqdn == "@" {
+				fqdn = domain
+			}
+
 			if apiToken == "" {
 				apiToken = os.Getenv("CF_API_TOKEN")
 			}
+
 			if apiToken == "" {
 				return fmt.Errorf("Cloudflare API token not provided")
 			}
+
 			if newIP == "" {
 				return fmt.Errorf("New IP address must be provided via --ip flag")
 			}
-			if err := UpdateARecord(apiToken, domain, domain, newIP); err != nil {
-				return err
-			}
-			return UpdateARecord(apiToken, domain, "www."+domain, newIP)
+
+			return UpdateARecord(apiToken, domain, fqdn, newIP)
 		},
 	}
 
 	updateCmd.Flags().StringVar(&newIP, "ip", "", "New IP address to update")
+	rootCmd.AddCommand(updateCmd)
+
+	updateCmd.Flags().BoolVar(&proxied, "proxied", true, "Whether to enable Cloudflare proxying (default: true)")
+	rootCmd.AddCommand(updateCmd)
+
+	updateCmd.Flags().Int16Var(&ttl, "ttl", 3600, "Time to live for the DNS record (default: 3600 seconds)")
 	rootCmd.AddCommand(updateCmd)
 
 	if err := rootCmd.Execute(); err != nil {
@@ -68,6 +87,7 @@ func UpdateARecord(apiToken, domain, fqdn, newIP string) error {
 	}
 	var zoneResult DnsRecordsResponse
 	json.Unmarshal(zoneResp, &zoneResult)
+
 	if len(zoneResult.Result) == 0 {
 		return fmt.Errorf("zone not found for %s", domain)
 	}
@@ -88,8 +108,8 @@ func UpdateARecord(apiToken, domain, fqdn, newIP string) error {
 		"type":    "A",
 		"name":    fqdn,
 		"content": newIP,
-		"ttl":     3600,
-		"proxied": false,
+		"ttl":     ttl,
+		"proxied": proxied,
 	}
 	payloadBytes, _ := json.Marshal(updatePayload)
 
