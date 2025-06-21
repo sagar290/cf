@@ -26,6 +26,7 @@ var apiToken string
 var newIP string
 var proxied bool
 var ttl int16 = 3600
+var dnsRecord string = "A"
 
 func main() {
 	rootCmd := &cobra.Command{Use: "cf"}
@@ -40,7 +41,7 @@ func main() {
 			fqdn := args[2]
 
 			if resource != "dns" {
-				return fmt.Errorf("Invalid resource type: %s. Only 'dns' is supported", resource)
+				return fmt.Errorf("invalid resource type: %s. Only 'dns' is supported", resource)
 			}
 
 			if fqdn == "@" {
@@ -52,11 +53,11 @@ func main() {
 			}
 
 			if apiToken == "" {
-				return fmt.Errorf("Cloudflare API token not provided")
+				return fmt.Errorf("cloudflare API token not provided")
 			}
 
 			if newIP == "" {
-				return fmt.Errorf("New IP address must be provided via --ip flag")
+				return fmt.Errorf("new IP address must be provided via --ip flag")
 			}
 
 			return UpdateARecord(apiToken, domain, fqdn, newIP)
@@ -70,6 +71,9 @@ func main() {
 	rootCmd.AddCommand(updateCmd)
 
 	updateCmd.Flags().Int16Var(&ttl, "ttl", 3600, "Time to live for the DNS record (default: 3600 seconds)")
+	rootCmd.AddCommand(updateCmd)
+
+	updateCmd.Flags().StringVar(&dnsRecord, "dnsRecord", "A", "Type of DNS record to update (default: A)")
 	rootCmd.AddCommand(updateCmd)
 
 	if err := rootCmd.Execute(); err != nil {
@@ -100,12 +104,12 @@ func UpdateARecord(apiToken, domain, fqdn, newIP string) error {
 	var recordResult DnsRecordsResponse
 	json.Unmarshal(recordResp, &recordResult)
 	if len(recordResult.Result) == 0 {
-		return fmt.Errorf("A record not found for %s", fqdn)
+		return fmt.Errorf("the A record not found for %s", fqdn)
 	}
 	recordID := recordResult.Result[0].ID
 
 	updatePayload := map[string]interface{}{
-		"type":    "A",
+		"type":    dnsRecord,
 		"name":    fqdn,
 		"content": newIP,
 		"ttl":     ttl,
