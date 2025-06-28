@@ -54,3 +54,28 @@ jobs:
         with:
           name: cf-${{ matrix.goos }}-${{ matrix.goarch }}
           path: dist/cf-${{ matrix.goos }}-${{ matrix.goarch }}.zip
+  release:
+    name: Create GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+
+      - name: Flatten structure
+        run: |
+          mkdir flat
+          find dist -type f -exec cp {} flat/ \;
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ github.ref_name }}
+          tag_name: ${{ github.ref_name }}
+          files: flat/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
