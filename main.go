@@ -26,20 +26,27 @@ type DnsRecordsResponse struct {
 var apiToken string
 var proxied bool
 var ttl int16 = 3600
-var dnsRecord string = "A"
-var upsert bool = false
+var dnsRecord string
+var upsert bool
+var comment string
 
 func main() {
 	rootCmd := &cobra.Command{Use: "cf"}
 
 	updateCmd := &cobra.Command{
-		Use:   "update:dns [domain] [type] [key] [value]",
+		Use:   "update:dns [domain] [type] [key] [value] [comment (optional)]",
 		Short: "update:dns specific A record (like root or www) for a domain",
+		Args:  cobra.MinimumNArgs(4),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			domain := args[0]
 			dnsRecord := args[1]
 			key := args[2]
 			value := args[3]
+			comment = ""
+
+			if len(args) > 4 {
+				comment = args[4]
+			}
 
 			if key == "" || value == "" {
 				return fmt.Errorf("key and value must be provided")
@@ -53,7 +60,7 @@ func main() {
 				return fmt.Errorf("cloudflare API token not provided")
 			}
 
-			return UpdateDNSRecord(apiToken, domain, dnsRecord, key, value)
+			return UpdateDNSRecord(apiToken, domain, dnsRecord, key, value, comment)
 			// return nil
 		},
 	}
@@ -70,13 +77,16 @@ func main() {
 	updateCmd.Flags().BoolVar(&upsert, "upsert", false, "Whether to update or insert the DNS record (default: false)")
 	rootCmd.AddCommand(updateCmd)
 
+	updateCmd.Flags().StringVar(&comment, "co", "", "Whether to update or insert the DNS record (default: false)")
+	rootCmd.AddCommand(updateCmd)
+
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println("❌", err)
 		os.Exit(1)
 	}
 }
 
-func UpdateDNSRecord(apiToken, domain string, dnsRecord string, key string, value string) error {
+func UpdateDNSRecord(apiToken, domain string, dnsRecord string, key string, value string, comment string) error {
 	client := &http.Client{}
 
 	zoneResp, err := getJson(client, fmt.Sprintf("https://api.cloudflare.com/client/v4/zones?name=%s", domain), apiToken)
@@ -113,7 +123,7 @@ func UpdateDNSRecord(apiToken, domain string, dnsRecord string, key string, valu
 	if len(recordResult.Result) == 0 {
 
 		if upsert {
-			err = InsertRecord(apiToken, dnsRecord, key, value, err, zoneID, client)
+			err = InsertRecord(apiToken, dnsRecord, key, value, comment, zoneID, client)
 			if err != nil {
 				return err
 			}
@@ -124,7 +134,7 @@ func UpdateDNSRecord(apiToken, domain string, dnsRecord string, key string, valu
 	} else {
 		recordID := recordResult.Result[0].ID
 
-		err = UpdateRecord(apiToken, dnsRecord, key, value, err, zoneID, recordID, client)
+		err = UpdateRecord(apiToken, dnsRecord, key, value, comment, zoneID, recordID, client)
 		if err != nil {
 			return err
 		}
@@ -133,13 +143,14 @@ func UpdateDNSRecord(apiToken, domain string, dnsRecord string, key string, valu
 	return nil
 }
 
-func InsertRecord(apiToken string, dnsRecord string, key string, value string, err error, zoneID string, client *http.Client) error {
+func InsertRecord(apiToken string, dnsRecord string, key string, value string, comment string, zoneID string, client *http.Client) error {
 	payload := map[string]interface{}{
 		"type":    dnsRecord,
 		"name":    key,
 		"content": value,
 		"ttl":     ttl,
 		"proxied": proxied,
+		"comment": comment,
 	}
 	payloadBytes, _ := json.Marshal(payload)
 
@@ -166,13 +177,14 @@ func InsertRecord(apiToken string, dnsRecord string, key string, value string, e
 	return nil
 }
 
-func UpdateRecord(apiToken string, dnsRecord string, key string, value string, err error, zoneID string, recordID string, client *http.Client) error {
+func UpdateRecord(apiToken string, dnsRecord string, key string, value string, comment string, zoneID string, recordID string, client *http.Client) error {
 	updatePayload := map[string]interface{}{
 		"type":    dnsRecord,
 		"name":    key,
 		"content": value,
 		"ttl":     ttl,
 		"proxied": proxied,
+		"comment": comment,
 	}
 	payloadBytes, _ := json.Marshal(updatePayload)
 
