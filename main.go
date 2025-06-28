@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -23,7 +24,6 @@ type DnsRecordsResponse struct {
 }
 
 var apiToken string
-var newIP string
 var proxied bool
 var ttl int16 = 3600
 var dnsRecord string = "A"
@@ -32,20 +32,16 @@ func main() {
 	rootCmd := &cobra.Command{Use: "cf"}
 
 	updateCmd := &cobra.Command{
-		Use:   "update dns [domain] [fqdn]",
-		Short: "Update specific A record (like root or www) for a domain",
+		Use:   "update:dns [domain] [type] [key] [value]",
+		Short: "update:dns specific A record (like root or www) for a domain",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			domain := args[0]
+			dnsRecord := args[1]
+			key := args[2]
+			value := args[3]
 
-			resource := args[0]
-			domain := args[1]
-			fqdn := args[2]
-
-			if resource != "dns" {
-				return fmt.Errorf("invalid resource type: %s. Only 'dns' is supported", resource)
-			}
-
-			if fqdn == "@" {
-				fqdn = domain
+			if key == "" || value == "" {
+				return fmt.Errorf("key and value must be provided")
 			}
 
 			if apiToken == "" {
@@ -56,16 +52,10 @@ func main() {
 				return fmt.Errorf("cloudflare API token not provided")
 			}
 
-			if newIP == "" {
-				return fmt.Errorf("new IP address must be provided via --ip flag")
-			}
-
-			return UpdateARecord(apiToken, domain, fqdn, newIP)
+			return UpdateDNSRecord(apiToken, domain, dnsRecord, key, value)
+			// return nil
 		},
 	}
-
-	updateCmd.Flags().StringVar(&newIP, "ip", "", "New IP address to update")
-	rootCmd.AddCommand(updateCmd)
 
 	updateCmd.Flags().BoolVar(&proxied, "proxied", true, "Whether to enable Cloudflare proxying (default: true)")
 	rootCmd.AddCommand(updateCmd)
@@ -82,7 +72,7 @@ func main() {
 	}
 }
 
-func UpdateARecord(apiToken, domain, fqdn, newIP string) error {
+func UpdateDNSRecord(apiToken, domain string, dnsRecord string, key string, value string) error {
 	client := &http.Client{}
 
 	zoneResp, err := getJson(client, fmt.Sprintf("https://api.cloudflare.com/client/v4/zones?name=%s", domain), apiToken)
@@ -97,12 +87,27 @@ func UpdateARecord(apiToken, domain, fqdn, newIP string) error {
 	}
 	zoneID := zoneResult.Result[0].ID
 
+	if key == "@" {
+		key = domain
+	}
+
+	fqdn := key
+	if key != "" && !keyHasDomainSuffix(key, domain) {
+		fqdn = key + "." + domain
+	}
+
 	recordResp, err := getJson(client, fmt.Sprintf("https://api.cloudflare.com/client/v4/zones/%s/dns_records?type=A&name=%s", zoneID, fqdn), apiToken)
+
+	fmt.Println("🔍 Searching for A record:", fmt.Sprintf("https://api.cloudflare.com/client/v4/zones/%s/dns_records?type=A&name=%s", zoneID, fqdn), fqdn, string(recordResp))
+
 	if err != nil {
 		return err
 	}
 	var recordResult DnsRecordsResponse
-	json.Unmarshal(recordResp, &recordResult)
+	err = json.Unmarshal(recordResp, &recordResult)
+	if err != nil {
+		return err
+	}
 	if len(recordResult.Result) == 0 {
 		return fmt.Errorf("the A record not found for %s", fqdn)
 	}
@@ -110,8 +115,8 @@ func UpdateARecord(apiToken, domain, fqdn, newIP string) error {
 
 	updatePayload := map[string]interface{}{
 		"type":    dnsRecord,
-		"name":    fqdn,
-		"content": newIP,
+		"name":    key,
+		"content": value,
 		"ttl":     ttl,
 		"proxied": proxied,
 	}
@@ -128,10 +133,15 @@ func UpdateARecord(apiToken, domain, fqdn, newIP string) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			fmt.Println(err)
+		}
+	}(resp.Body)
 
 	body, _ := ioutil.ReadAll(resp.Body)
-	fmt.Printf("✅ Updated %s to %s\nResponse: %s\n", fqdn, newIP, string(body))
+	fmt.Printf("✅ Updated %s to %s\nResponse: %s\n", key, value, string(body))
 	return nil
 }
 
@@ -150,4 +160,11 @@ func getJson(client *http.Client, url, apiToken string) ([]byte, error) {
 	defer resp.Body.Close()
 
 	return ioutil.ReadAll(resp.Body)
+}
+
+func keyHasDomainSuffix(key string, domain string) bool {
+	if len(key) < len(domain) {
+		return false
+	}
+	return key[len(key)-len(domain):] == domain
 }
