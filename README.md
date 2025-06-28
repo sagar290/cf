@@ -120,6 +120,7 @@ Prebuilt binaries for all major platforms are available on the [Releases](https:
 curl -L -o cf https://github.com/sagar290/cf/releases/latest/download/cf-linux-amd64
 chmod +x cf
 ./cf --help
+```
 
 ## 📄 License
 
