@@ -73,9 +73,6 @@ func main() {
 	updateCmd.Flags().BoolVar(&upsert, "upsert", false, "Whether to update or insert the DNS record (default: false)")
 	rootCmd.AddCommand(updateCmd)
 
-	updateCmd.Flags().StringVar(&comment, "comment", "", "Additional comment for the DNS record (optional)")
-	rootCmd.AddCommand(updateCmd)
-
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println("❌", err)
 		os.Exit(1)

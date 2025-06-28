@@ -86,7 +86,6 @@ This updates or inserts the A record for `example.com` with a comment.
 | `--proxied`  | true    | Whether the record should be proxied         |
 | `--ttl`      | 3600    | Time To Live for the DNS record (in seconds) |
 | `--upsert`   | false   | Create the record if it doesn't exist        |
-| `--comment`  | ""      | Add or override comment via flag             |
 
 ---
 
