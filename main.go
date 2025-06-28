@@ -165,8 +165,7 @@ func InsertRecord(apiToken string, dnsRecord string, key string, value string, c
 		}
 	}(resp.Body)
 
-	body, _ := ioutil.ReadAll(resp.Body)
-	fmt.Printf("✅ Inserted %s to %s\nResponse: %s\n", key, value, string(body))
+	fmt.Printf("✅ Inserted %s to %s\n", key, value)
 	return nil
 }
 
@@ -199,8 +198,7 @@ func UpdateRecord(apiToken string, dnsRecord string, key string, value string, c
 		}
 	}(resp.Body)
 
-	body, _ := ioutil.ReadAll(resp.Body)
-	fmt.Printf("✅ Updated %s to %s\nResponse: %s\n", key, value, string(body))
+	fmt.Printf("✅ Updated %s to %s\n", key, value)
 	return nil
 }
 
