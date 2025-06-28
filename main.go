@@ -26,7 +26,6 @@ type DnsRecordsResponse struct {
 var apiToken string
 var proxied bool
 var ttl int16 = 3600
-var dnsRecord string
 var upsert bool
 var comment string
 
@@ -71,13 +70,10 @@ func main() {
 	updateCmd.Flags().Int16Var(&ttl, "ttl", 3600, "Time to live for the DNS record (default: 3600 seconds)")
 	rootCmd.AddCommand(updateCmd)
 
-	updateCmd.Flags().StringVar(&dnsRecord, "dnsRecord", "A", "Type of DNS record to update (default: A)")
-	rootCmd.AddCommand(updateCmd)
-
 	updateCmd.Flags().BoolVar(&upsert, "upsert", false, "Whether to update or insert the DNS record (default: false)")
 	rootCmd.AddCommand(updateCmd)
 
-	updateCmd.Flags().StringVar(&comment, "co", "", "Whether to update or insert the DNS record (default: false)")
+	updateCmd.Flags().StringVar(&comment, "comment", "", "Additional comment for the DNS record (optional)")
 	rootCmd.AddCommand(updateCmd)
 
 	if err := rootCmd.Execute(); err != nil {
