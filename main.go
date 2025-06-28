@@ -27,6 +27,7 @@ var apiToken string
 var proxied bool
 var ttl int16 = 3600
 var dnsRecord string = "A"
+var upsert bool = false
 
 func main() {
 	rootCmd := &cobra.Command{Use: "cf"}
@@ -66,6 +67,9 @@ func main() {
 	updateCmd.Flags().StringVar(&dnsRecord, "dnsRecord", "A", "Type of DNS record to update (default: A)")
 	rootCmd.AddCommand(updateCmd)
 
+	updateCmd.Flags().BoolVar(&upsert, "upsert", false, "Whether to update or insert the DNS record (default: false)")
+	rootCmd.AddCommand(updateCmd)
+
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println("❌", err)
 		os.Exit(1)
@@ -98,8 +102,6 @@ func UpdateDNSRecord(apiToken, domain string, dnsRecord string, key string, valu
 
 	recordResp, err := getJson(client, fmt.Sprintf("https://api.cloudflare.com/client/v4/zones/%s/dns_records?type=A&name=%s", zoneID, fqdn), apiToken)
 
-	fmt.Println("🔍 Searching for A record:", fmt.Sprintf("https://api.cloudflare.com/client/v4/zones/%s/dns_records?type=A&name=%s", zoneID, fqdn), fqdn, string(recordResp))
-
 	if err != nil {
 		return err
 	}
@@ -109,10 +111,62 @@ func UpdateDNSRecord(apiToken, domain string, dnsRecord string, key string, valu
 		return err
 	}
 	if len(recordResult.Result) == 0 {
-		return fmt.Errorf("the A record not found for %s", fqdn)
-	}
-	recordID := recordResult.Result[0].ID
 
+		if upsert {
+			err = InsertRecord(apiToken, dnsRecord, key, value, err, zoneID, client)
+			if err != nil {
+				return err
+			}
+		} else {
+			return fmt.Errorf("the A record not found for %s", fqdn)
+		}
+
+	} else {
+		recordID := recordResult.Result[0].ID
+
+		err = UpdateRecord(apiToken, dnsRecord, key, value, err, zoneID, recordID, client)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func InsertRecord(apiToken string, dnsRecord string, key string, value string, err error, zoneID string, client *http.Client) error {
+	payload := map[string]interface{}{
+		"type":    dnsRecord,
+		"name":    key,
+		"content": value,
+		"ttl":     ttl,
+		"proxied": proxied,
+	}
+	payloadBytes, _ := json.Marshal(payload)
+
+	req, err := http.NewRequest("POST", fmt.Sprintf("https://api.cloudflare.com/client/v4/zones/%s/dns_records", zoneID), bytes.NewBuffer(payloadBytes))
+	if err != nil {
+		return err
+	}
+	req.Header.Add("Authorization", "Bearer "+apiToken)
+	req.Header.Add("Content-Type", "application/json")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			fmt.Println(err)
+		}
+	}(resp.Body)
+
+	body, _ := ioutil.ReadAll(resp.Body)
+	fmt.Printf("✅ Inserted %s to %s\nResponse: %s\n", key, value, string(body))
+	return nil
+}
+
+func UpdateRecord(apiToken string, dnsRecord string, key string, value string, err error, zoneID string, recordID string, client *http.Client) error {
 	updatePayload := map[string]interface{}{
 		"type":    dnsRecord,
 		"name":    key,
