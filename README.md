@@ -27,6 +27,28 @@ A CLI tool written in Go using Cobra to update or insert **A records** (or other
    go build -o cf
    ```
 
+## 📦 Download Binaries
+
+Prebuilt binaries for all major platforms are available on the [Releases](https://github.com/sagar290/cf/releases) page.
+
+| Platform      | File Name                   |
+|---------------|-----------------------------|
+| Linux (amd64) | `cf-linux-amd64`            |
+| Linux (arm64) | `cf-linux-arm64`            |
+| macOS         | `cf-darwin-amd64`           |
+| Windows       | `cf-windows-amd64.exe`      |
+| Windows (ARM) | `cf-windows-arm64.exe`      |
+
+---
+
+## 📥 Quick Download Example (Linux)
+
+```bash
+curl -L -o cf https://github.com/sagar290/cf/releases/latest/download/cf-linux-amd64
+chmod +x cf
+./cf --help
+```
+
 ---
 
 ## ✅ Usage
@@ -100,27 +122,7 @@ Response: {...}
 
 ---
 
-## 📦 Download Binaries
 
-Prebuilt binaries for all major platforms are available on the [Releases](https://github.com/sagar290/cf/releases) page.
-
-| Platform      | File Name                   |
-|---------------|-----------------------------|
-| Linux (amd64) | `cf-linux-amd64`            |
-| Linux (arm64) | `cf-linux-arm64`            |
-| macOS         | `cf-darwin-amd64`           |
-| Windows       | `cf-windows-amd64.exe`      |
-| Windows (ARM) | `cf-windows-arm64.exe`      |
-
----
-
-## 📥 Quick Download Example (Linux)
-
-```bash
-curl -L -o cf https://github.com/sagar290/cf/releases/latest/download/cf-linux-amd64
-chmod +x cf
-./cf --help
-```
 
 ## 📄 License
 
