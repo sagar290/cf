@@ -18,7 +18,7 @@ A CLI tool written in Go using Cobra to update or insert **A records** (or other
 
 1. Clone the repo:
    ```bash
-   git clone https://github.com/yourusername/cloudflare-dns-updater.git
+   git clone https://github.com/sagar290/cf.git
    cd cloudflare-dns-updater
    ```
 
